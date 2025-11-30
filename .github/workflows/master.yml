@@ -24,7 +24,7 @@ jobs:
           printf "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-          - name: Deploy to VPS via SSH and Docker Compose
+      - name: Deploy to VPS via SSH and Docker Compose
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
