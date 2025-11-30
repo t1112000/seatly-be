@@ -28,14 +28,15 @@ jobs:
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
-          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
           SSH_PORT: ${{ env.SSH_PORT }}
         run: |
           ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
             set -e
 
+            PROJECT_PATH="/var/www/seatly-be"
             echo "PROJECT_PATH = $PROJECT_PATH"
-            cd $PROJECT_PATH
+
+            cd "$PROJECT_PATH"
 
             echo "Current dir:"
             pwd
@@ -43,7 +44,7 @@ jobs:
             ls -a
 
             echo "Pull latest code..."
-            git pull origin master
+            git pull origin master   # hoặc main nếu repo xài main
 
             echo "Build docker image..."
             docker compose build
