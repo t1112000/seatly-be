@@ -1,13 +1,16 @@
-name: Seatly BE
+name: Deploy Seatly BE to VPS (Docker)
 
 on:
   push:
     branches:
-      - master
+      - main # đổi nếu dùng branch khác
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      SSH_PORT: 8686 # <-- SSH đang chạy port 8686
 
     steps:
       - name: Checkout code
@@ -18,28 +21,28 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          printf "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Deploy to VPS via SSH and Docker Compose
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+          SSH_PORT: ${{ env.SSH_PORT }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
+          ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
             set -e
-
             cd $PROJECT_PATH
 
-            echo "Pulling latest code..."
+            echo "Pull latest code..."
             git pull origin main
 
-            echo "Building Docker image..."
+            echo "Build docker image..."
             docker compose build
 
-            echo "Starting containers..."
+            echo "Run containers..."
             docker compose up -d
 
-            echo "Cleanup old images (optional)..."
-            docker image prune -f || true
+            echo "Done."
           EOF
