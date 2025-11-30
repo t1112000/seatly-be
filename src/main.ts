@@ -23,17 +23,12 @@ async function bootstrap() {
   const logger = app.get(Logger);
   app.useLogger(logger);
 
-  const clientUrl =
-    configService.get<string>('CLIENT_URL') || 'http://localhost:3001';
-
   // Apply middleware BEFORE CORS and global prefix
   app.use(cookieParser()); // Enable cookie parsing
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   app.enableCors({
-    origin: clientUrl,
-    credentials: true, // Allow cookies to be sent
     maxAge: 3600, // 🕒 Cache preflight for 1 hours
   });
   app.setGlobalPrefix('/api');
