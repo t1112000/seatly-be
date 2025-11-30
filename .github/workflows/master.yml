@@ -3,7 +3,7 @@ name: Deploy Seatly BE to VPS (Docker)
 on:
   push:
     branches:
-      - main # đổi nếu dùng branch khác
+      - master # đổi nếu dùng branch khác
 
 jobs:
   deploy:
