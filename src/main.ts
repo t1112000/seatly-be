@@ -20,6 +20,7 @@ async function bootstrap() {
 
   const configService: ConfigService = app.get(ConfigService);
   const env = configService.get<string>('NODE_ENV');
+  const clientUrl = configService.get<string>('CLIENT_URL');
   const logger = app.get(Logger);
   app.useLogger(logger);
 
@@ -29,6 +30,8 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   app.enableCors({
+    origin: clientUrl,
+    credentials: true,
     maxAge: 3600, // 🕒 Cache preflight for 1 hours
   });
   app.setGlobalPrefix('/api');
