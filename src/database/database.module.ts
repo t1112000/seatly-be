@@ -7,42 +7,58 @@ import * as Models from 'src/models';
 
 const sequelizeModule = SequelizeModule.forRootAsync({
   inject: [ConfigService, PinoLogger],
-  useFactory: (configService: ConfigService, logger: PinoLogger) => ({
-    dialect: 'postgres',
-    username: configService.getOrThrow(ConfigServiceKeys.DB_USERNAME),
-    password: configService.getOrThrow(ConfigServiceKeys.DB_PASSWORD),
-    database: configService.getOrThrow(ConfigServiceKeys.DB_NAME),
-    port: +configService.get(ConfigServiceKeys.DB_PORT, 5432),
-    replication: {
-      read: configService
-        .getOrThrow(ConfigServiceKeys.DB_SLAVE_HOST)
-        .split(',')
-        .map((slaveDbHost) => ({
-          host: slaveDbHost,
-        })),
-      write: {
-        host: configService.getOrThrow(ConfigServiceKeys.DB_MASTER_HOST),
+  useFactory: (configService: ConfigService, logger: PinoLogger) => {
+    const masterHost = configService.getOrThrow(
+      ConfigServiceKeys.DB_MASTER_HOST,
+    );
+    const slaveHost = configService.get<string>(
+      ConfigServiceKeys.DB_SLAVE_HOST,
+    );
+
+    // Nếu có slave host thì dùng replication, nếu không thì dùng master cho cả read/write
+    const config: any = {
+      dialect: 'postgres',
+      username: configService.getOrThrow(ConfigServiceKeys.DB_USERNAME),
+      password: configService.getOrThrow(ConfigServiceKeys.DB_PASSWORD),
+      database: configService.getOrThrow(ConfigServiceKeys.DB_NAME),
+      port: +configService.get(ConfigServiceKeys.DB_PORT, 5432),
+      models: Object.values(Models),
+      timezone: configService.get(ConfigServiceKeys.TIMEZONE, 'UTC'),
+      benchmark: true,
+      pool: {
+        max: 25,
+        min: 0,
+        idle: 60000,
       },
-    },
-    dialectOptions: !!configService.get<string>(
-      ConfigServiceKeys.DB_SSL_REQUIRED,
-    )
-      ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: false,
-          },
-        }
-      : undefined,
-    models: Object.values(Models),
-    timezone: configService.get(ConfigServiceKeys.TIMEZONE, 'UTC'),
-    benchmark: true,
-    pool: {
-      max: 25,
-      min: 0,
-      idle: 60000,
-    },
-  }),
+    };
+
+    // Chỉ dùng replication nếu có slave host
+    if (slaveHost) {
+      config.replication = {
+        read: slaveHost.split(',').map((slaveDbHost) => ({
+          host: slaveDbHost.trim(),
+        })),
+        write: {
+          host: masterHost,
+        },
+      };
+    } else {
+      // Không có slave, dùng master cho cả read và write
+      config.host = masterHost;
+    }
+
+    // SSL config
+    if (configService.get<string>(ConfigServiceKeys.DB_SSL_REQUIRED)) {
+      config.dialectOptions = {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      };
+    }
+
+    return config;
+  },
 });
 
 @Module({
