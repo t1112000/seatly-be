@@ -61,14 +61,19 @@ export class AuthController extends BaseController {
   @ApiOkResponse({ type: GoogleOAuthResponseDto })
   @ApiOperation({ summary: 'Google OAuth' })
   async googleLogin(
+    @Req() request: express.Request,
     @Res() response: express.Response,
     @Body() data: GoogleOAuthDto,
   ) {
     const token = await this.authService.googleOAuth(data);
 
+    // Check if request is HTTPS (works behind proxy like Cloudflare)
+    const isSecure =
+      request.secure || request.headers['x-forwarded-proto'] === 'https';
+
     response.cookie('accessToken', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Only HTTPS in production
+      secure: isSecure, // Set based on actual protocol
       sameSite: 'lax',
       maxAge: 60 * 24 * 60 * 60 * 1000, // 60 days in milliseconds
     });
@@ -81,11 +86,18 @@ export class AuthController extends BaseController {
   @ApiOperation({ summary: 'Logout' })
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
-  async logout(@Res() response: express.Response) {
+  async logout(
+    @Req() request: express.Request,
+    @Res() response: express.Response,
+  ) {
+    // Check if request is HTTPS (works behind proxy like Cloudflare)
+    const isSecure =
+      request.secure || request.headers['x-forwarded-proto'] === 'https';
+
     // Clear the cookie
     response.clearCookie('accessToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure, // Set based on actual protocol
       sameSite: 'lax',
     });
 
