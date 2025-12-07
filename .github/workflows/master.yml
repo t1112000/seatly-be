@@ -46,8 +46,35 @@ jobs:
             echo "Pull latest code..."
             git pull origin master   # hoặc main nếu repo xài main
 
-            echo "Build docker image..."
-            docker compose build
+            echo "Pull base images first (with retry)..."
+            # Pull base images with retry to avoid TLS timeout
+            pull_with_retry() {
+              local image=$1
+              local max_retries=3
+              local retry_count=0
+              
+              while [ $retry_count -lt $max_retries ]; do
+                if docker pull "$image"; then
+                  echo "Successfully pulled $image"
+                  return 0
+                else
+                  retry_count=$((retry_count + 1))
+                  if [ $retry_count -lt $max_retries ]; then
+                    echo "Failed to pull $image, retrying... ($retry_count/$max_retries)"
+                    sleep 15
+                  else
+                    echo "Failed to pull $image after $max_retries attempts"
+                    return 1
+                  fi
+                fi
+              done
+            }
+            
+            pull_with_retry "node:20-alpine" || exit 1
+
+            echo "Build docker image with BuildKit..."
+            # Enable BuildKit for better network handling and caching
+            DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build
 
             echo "Run containers..."
             docker compose up -d
