@@ -19,8 +19,10 @@ export class RedisIoAdapter extends IoAdapter {
       this.configService.get<string>(ConfigServiceKeys.REDIS_SSL_REQUIRED) ===
       'true';
 
+    // Use rediss:// (Redis Secure) protocol when TLS is enabled
+    const protocol = tls ? 'rediss' : 'redis';
     const redisClient = createClient({
-      url: `redis://${host}:${port}`,
+      url: `${protocol}://${host}:${port}`,
       password,
       database: 1,
       ...(tls && {
