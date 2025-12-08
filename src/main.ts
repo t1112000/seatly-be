@@ -25,8 +25,8 @@ async function bootstrap() {
   app.useLogger(logger);
 
   // Trust proxy (needed for Cloudflare/HTTPS behind proxy)
-  const expressApp = app.getHttpAdapter().getInstance();
-  expressApp.set('trust proxy', true);
+  // const expressApp = app.getHttpAdapter().getInstance();
+  // expressApp.set('trust proxy', true);
 
   // Apply middleware BEFORE CORS and global prefix
   app.use(cookieParser()); // Enable cookie parsing
