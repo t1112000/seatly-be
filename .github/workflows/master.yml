@@ -1,22 +1,24 @@
-name: Seatly BE
+name: Seatly BE Deployment
 
 on:
   push:
     branches:
-      - master # chạy khi push lên branch master
+      - master
 
 jobs:
   deploy:
+    name: Deploy to Production
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     env:
-      SSH_PORT: 8686 # SSH VPS đang chạy port 8686
+      SSH_PORT: 8686
 
     steps:
-      - name: Checkout code
+      - name: 📦 Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH key
+      - name: 🔐 Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
@@ -24,7 +26,7 @@ jobs:
           printf "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-      - name: Pull latest code and build docker image
+      - name: 🔄 Pull latest code
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -32,22 +34,25 @@ jobs:
         run: |
           ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
             set -e
-
             PROJECT_PATH="/var/www/seatly-be"
-            echo "PROJECT_PATH = $PROJECT_PATH"
-
             cd "$PROJECT_PATH"
+            echo "📂 Current directory: $(pwd)"
+            echo "🔄 Pulling latest code from master..."
+            git pull origin master
+            echo "✅ Code updated successfully"
+          EOF
 
-            echo "Current dir:"
-            pwd
-            echo "List files:"
-            ls -a
-
-            echo "Pull latest code..."
-            git pull origin master   # hoặc main nếu repo xài main
-
-            echo "Pull base images first (with retry)..."
-            # Pull base images with retry to avoid TLS timeout
+      - name: 🐳 Pull base Docker images
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ env.SSH_PORT }}
+        run: |
+          ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
+            set -e
+            PROJECT_PATH="/var/www/seatly-be"
+            cd "$PROJECT_PATH"
+            
             pull_with_retry() {
               local image=$1
               local max_retries=3
@@ -55,29 +60,51 @@ jobs:
               
               while [ $retry_count -lt $max_retries ]; do
                 if docker pull "$image"; then
-                  echo "Successfully pulled $image"
+                  echo "✅ Successfully pulled $image"
                   return 0
                 else
                   retry_count=$((retry_count + 1))
                   if [ $retry_count -lt $max_retries ]; then
-                    echo "Failed to pull $image, retrying... ($retry_count/$max_retries)"
+                    echo "⚠️  Failed to pull $image, retrying... ($retry_count/$max_retries)"
                     sleep 15
                   else
-                    echo "Failed to pull $image after $max_retries attempts"
+                    echo "❌ Failed to pull $image after $max_retries attempts"
                     return 1
                   fi
                 fi
               done
             }
             
+            echo "🐳 Pulling base images with retry mechanism..."
             pull_with_retry "node:20-alpine" || exit 1
+          EOF
 
-            echo "Build docker image with BuildKit..."
-            # Enable BuildKit for better network handling and caching
+      - name: 🏗️  Build Docker images
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ env.SSH_PORT }}
+        run: |
+          ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
+            set -e
+            PROJECT_PATH="/var/www/seatly-be"
+            cd "$PROJECT_PATH"
+            echo "🏗️  Building Docker images with BuildKit..."
             DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build
+            echo "✅ Build completed successfully"
+          EOF
 
-            echo "Run containers..."
+      - name: 🚀 Deploy containers
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ env.SSH_PORT }}
+        run: |
+          ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST << 'EOF'
+            set -e
+            PROJECT_PATH="/var/www/seatly-be"
+            cd "$PROJECT_PATH"
+            echo "🚀 Starting containers..."
             docker compose up -d
-
-            echo "Done."
+            echo "✅ Deployment completed successfully"
           EOF
