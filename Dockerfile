@@ -2,25 +2,19 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install yarn classic (v1)
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
-
-COPY package*.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
 COPY . .
-RUN yarn build
+RUN npm run build
 
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install yarn classic (v1)
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
-
-COPY package*.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production
+COPY package*.json ./
+RUN npm install --omit=dev --legacy-peer-deps
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/sequelize ./sequelize
