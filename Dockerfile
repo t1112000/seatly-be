@@ -6,7 +6,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare yarn@stable --activate
 
 COPY package*.json yarn.lock ./
-RUN yarn install --immutable
+RUN yarn install
 
 COPY . .
 RUN yarn build
@@ -20,7 +20,7 @@ ENV NODE_ENV=production
 RUN corepack enable && corepack prepare yarn@stable --activate
 
 COPY package*.json yarn.lock ./
-RUN yarn workspaces focus
+RUN yarn workspaces focus --production
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/sequelize ./sequelize
