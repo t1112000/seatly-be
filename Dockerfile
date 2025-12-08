@@ -2,11 +2,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install yarn
-RUN corepack enable && corepack prepare yarn@stable --activate
+# Install yarn classic (v1)
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 COPY package*.json yarn.lock ./
-RUN yarn install
+RUN yarn install --frozen-lockfile
 
 COPY . .
 RUN yarn build
@@ -16,11 +16,11 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install yarn
-RUN corepack enable && corepack prepare yarn@stable --activate
+# Install yarn classic (v1)
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 COPY package*.json yarn.lock ./
-RUN yarn workspaces focus --production
+RUN yarn install --frozen-lockfile --production
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/sequelize ./sequelize
