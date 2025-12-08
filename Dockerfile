@@ -20,7 +20,7 @@ ENV NODE_ENV=production
 RUN corepack enable && corepack prepare yarn@stable --activate
 
 COPY package*.json yarn.lock ./
-RUN yarn install --immutable --production
+RUN yarn workspaces focus
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/sequelize ./sequelize
