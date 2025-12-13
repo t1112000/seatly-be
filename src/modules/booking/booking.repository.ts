@@ -37,7 +37,7 @@ export class BookingRepository {
   async update(
     id: string,
     payload: UpdateBookingDto,
-    options?: UpdateOptions<BookingModel>,
+    options?: Omit<UpdateOptions<BookingModel>, 'where'>,
   ): Promise<BookingModel | null> {
     const [count, rows] = await this.bookingModel.update(payload, {
       ...options,
@@ -53,7 +53,7 @@ export class BookingRepository {
   async bulkUpdate(
     where: WhereOptions<BookingModel>,
     payload: UpdateBookingDto,
-    options?: UpdateOptions<BookingModel>,
+    options?: Omit<UpdateOptions<BookingModel>, 'where'>,
   ): Promise<BookingModel[]> {
     const [, rows] = await this.bookingModel.update(payload, {
       ...options,

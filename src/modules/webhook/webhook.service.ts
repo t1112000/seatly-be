@@ -12,7 +12,8 @@ import {
 import { QueueName } from 'src/common/enums/processor.enum';
 import { BookingService } from '../booking/booking.service';
 import { SeatService } from '../seat/seat.service';
-import { Op } from 'sequelize';
+import { Op, Sequelize } from 'sequelize';
+import { SeatModel } from 'src/models';
 
 @Injectable()
 export class WebhookService {
@@ -24,6 +25,7 @@ export class WebhookService {
     private readonly configService: ConfigService,
     @InjectQueue(QueueName.SEAT)
     private readonly seatQueue: Queue,
+    private readonly sequelize: Sequelize,
   ) {}
 
   async handleStripeWebhook(payload: Record<string, any>, signature?: string) {
@@ -66,46 +68,74 @@ export class WebhookService {
       this.logger.warn('Stripe checkout completed event missing session id');
       return;
     }
-    const booking = await this.bookingService.findOne({
-      provider_session_id: sessionId,
-    });
-    if (!booking) {
-      this.logger.warn(
-        { sessionId },
-        'No booking matches Stripe checkout session',
-      );
-      return;
-    }
-    if (booking.status === BookingStatusEnum.PAID) {
-      this.logger.debug(
-        { bookingId: booking.id },
-        'Booking already marked as paid',
-      );
-      return;
-    }
-    await Promise.all([
-      this.bookingService.update(booking.id, {
-        status: BookingStatusEnum.PAID,
-        payment_provider: PaymentProviderEnum.STRIPE,
-        provider_transaction_id:
-          session.payment_intent || booking.provider_transaction_id,
-      }),
-      this.seatService.updateByCondition(
+
+    const transaction = await this.sequelize.transaction();
+
+    try {
+      const booking = await this.bookingService.findOne(
         {
-          id: {
-            [Op.in]: booking.seats.map((seat) => seat.id),
+          provider_session_id: sessionId,
+        },
+        {
+          include: [
+            {
+              model: SeatModel,
+            },
+          ],
+          transaction,
+        },
+      );
+      if (!booking) {
+        this.logger.warn(
+          { sessionId },
+          'No booking matches Stripe checkout session',
+        );
+        return;
+      }
+      if (booking.status === BookingStatusEnum.PAID) {
+        this.logger.debug(
+          { bookingId: booking.id },
+          'Booking already marked as paid',
+        );
+        return;
+      }
+      await Promise.all([
+        this.bookingService.update(
+          booking.id,
+          {
+            status: BookingStatusEnum.PAID,
+            payment_provider: PaymentProviderEnum.STRIPE,
+            provider_transaction_id:
+              session.payment_intent || booking.provider_transaction_id,
           },
-        },
-        {
-          status: SeatStatusEnum.BOOKED,
-        },
-      ),
-      this.seatQueue.remove(booking.id),
-    ]);
-    this.logger.log(
-      { bookingId: booking.id, sessionId },
-      'Booking marked as paid after Stripe checkout completed',
-    );
+          { transaction },
+        ),
+        this.seatService.updateByCondition(
+          {
+            id: {
+              [Op.in]: booking.seats.map((seat) => seat.id),
+            },
+          },
+          {
+            status: SeatStatusEnum.BOOKED,
+          },
+          { transaction },
+        ),
+        this.seatQueue.remove(booking.id),
+      ]);
+      await transaction.commit();
+      this.logger.log(
+        { bookingId: booking.id, sessionId },
+        'Booking marked as paid after Stripe checkout completed',
+      );
+    } catch (error) {
+      await transaction.rollback();
+      this.logger.error(
+        error,
+        'Error marking booking as paid after Stripe checkout completed',
+      );
+      throw error;
+    }
   }
 
   private async handleCheckoutExpired(session: Record<string, any>) {

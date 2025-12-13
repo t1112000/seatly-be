@@ -4,7 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/sequelize';
-import { FindOptions, WhereOptions, Sequelize, Transaction } from 'sequelize';
+import {
+  FindOptions,
+  WhereOptions,
+  Sequelize,
+  Transaction,
+  UpdateOptions,
+  CreateOptions,
+} from 'sequelize';
 import { BookingModel, SeatModel } from 'src/models';
 import { SeatService } from '../seat/seat.service';
 import {
@@ -50,12 +57,19 @@ export class BookingService {
     return this.bookingRepository.findOne(condition, options);
   }
 
-  async create(payload: CreateBookingDto, options?: any) {
+  async create(
+    payload: CreateBookingDto,
+    options?: CreateOptions<BookingModel>,
+  ) {
     return this.bookingRepository.create(payload, options);
   }
 
-  async update(id: string, payload: UpdateBookingDto) {
-    return this.bookingRepository.update(id, payload);
+  async update(
+    id: string,
+    payload: UpdateBookingDto,
+    options?: Omit<UpdateOptions<BookingModel>, 'where'>,
+  ) {
+    return this.bookingRepository.update(id, payload, options);
   }
 
   async delete(id: string) {
