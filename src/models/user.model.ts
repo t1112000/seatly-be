@@ -21,4 +21,11 @@ export class UserModel extends BaseModel {
     allowNull: true,
   })
   google_id: string;
+
+  @Column({
+    type: DataType.STRING,
+    defaultValue: null,
+    allowNull: true,
+  })
+  stripe_customer_id: string;
 }

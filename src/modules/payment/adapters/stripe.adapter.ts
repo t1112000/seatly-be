@@ -2,10 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
 import { ConfigServiceKeys } from 'src/common/constants';
-import {
-  PaymentCurrencyEnum,
-  PaymentProviderEnum,
-} from 'src/common/enums';
+import { PaymentCurrencyEnum, PaymentProviderEnum } from 'src/common/enums';
 import {
   CreatePaymentLinkPayload,
   CreatePaymentLinkResult,
@@ -18,6 +15,47 @@ export class StripePaymentAdapter implements PaymentAdapter {
   private readonly baseUrl = 'https://api.stripe.com/v1';
 
   constructor(private readonly configService: ConfigService) {}
+
+  async createOrGetCustomer(
+    userId: string,
+    email: string,
+    name?: string,
+  ): Promise<string> {
+    const secretKey = this.configService.get<string>(
+      ConfigServiceKeys.STRIPE_SECRET_KEY,
+    );
+
+    if (!secretKey) {
+      throw new BadRequestException('Stripe secret key is not configured');
+    }
+
+    const formData = new URLSearchParams();
+    formData.append('email', email);
+    if (name) {
+      formData.append('name', name);
+    }
+    formData.append('metadata[userId]', userId);
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/customers`,
+        formData.toString(),
+        {
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        },
+      );
+      return response.data.id;
+    } catch (error) {
+      this.logger.error('Stripe customer creation failed', error);
+      throw new BadRequestException(
+        error?.response?.data?.error?.message ||
+          'Failed to create Stripe customer',
+      );
+    }
+  }
 
   async createPaymentLink(
     payload: CreatePaymentLinkPayload,
@@ -56,7 +94,9 @@ export class StripePaymentAdapter implements PaymentAdapter {
     );
     formData.append('line_items[0][quantity]', '1');
 
-    if (payload.customerEmail) {
+    if (payload.customerId) {
+      formData.append('customer', payload.customerId);
+    } else if (payload.customerEmail) {
       formData.append('customer_email', payload.customerEmail);
     }
 
@@ -86,7 +126,9 @@ export class StripePaymentAdapter implements PaymentAdapter {
         paymentUrl: data.url,
         providerSessionId: data.id,
         providerTransactionId: data.payment_intent,
-        expiresAt: data.expires_at ? new Date(data.expires_at * 1000) : undefined,
+        expiresAt: data.expires_at
+          ? new Date(data.expires_at * 1000)
+          : undefined,
         raw: data,
       };
     } catch (error) {
@@ -97,4 +139,3 @@ export class StripePaymentAdapter implements PaymentAdapter {
     }
   }
 }
-

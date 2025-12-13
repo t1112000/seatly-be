@@ -1,12 +1,13 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BookingModule } from '../booking/booking.module';
+import { UserModule } from '../user/user.module';
 import { PaymentService } from './payment.service';
 import { PaymentAdapterFactory } from './adapters/payment-adapter.factory';
 import { StripePaymentAdapter } from './adapters/stripe.adapter';
 import { MomoPaymentAdapter } from './adapters/momo.adapter';
 
 @Module({
-  imports: [forwardRef(() => BookingModule)],
+  imports: [forwardRef(() => BookingModule), UserModule],
   providers: [
     PaymentService,
     PaymentAdapterFactory,

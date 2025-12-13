@@ -1,7 +1,4 @@
-import {
-  PaymentCurrencyEnum,
-  PaymentProviderEnum,
-} from 'src/common/enums';
+import { PaymentCurrencyEnum, PaymentProviderEnum } from 'src/common/enums';
 
 export interface CreatePaymentLinkPayload {
   bookingId: string;
@@ -14,6 +11,7 @@ export interface CreatePaymentLinkPayload {
   userId: string;
   metadata?: Record<string, string>;
   customerEmail?: string;
+  customerId?: string;
 }
 
 export interface CreatePaymentLinkResult {
@@ -29,5 +27,9 @@ export interface PaymentAdapter {
   createPaymentLink(
     payload: CreatePaymentLinkPayload,
   ): Promise<CreatePaymentLinkResult>;
+  createOrGetCustomer?(
+    userId: string,
+    email: string,
+    name?: string,
+  ): Promise<string>;
 }
-

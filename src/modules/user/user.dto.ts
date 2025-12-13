@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
@@ -32,11 +32,16 @@ export class UserEntity {
   @IsString()
   @IsOptional()
   google_id?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  stripe_customer_id?: string;
 }
 
 export class CreateUserDto extends UserEntity {}
 
-export class UpdateUserDto extends UserEntity {}
+export class UpdateUserDto extends PartialType(UserEntity) {}
 
 export class FilterUserDto extends UserEntity {
   @Type(() => Number)

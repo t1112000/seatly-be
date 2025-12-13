@@ -6,9 +6,14 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ConfigServiceKeys } from 'src/common/constants';
-import { BookingStatusEnum, PaymentCurrencyEnum } from 'src/common/enums';
+import {
+  BookingStatusEnum,
+  PaymentCurrencyEnum,
+  PaymentProviderEnum,
+} from 'src/common/enums';
 import { SeatModel } from 'src/models';
 import { BookingService } from '../booking/booking.service';
+import { UserService } from '../user/user.service';
 import { PaymentAdapterFactory } from './adapters/payment-adapter.factory';
 import {
   CreatePaymentLinkDto,
@@ -22,6 +27,7 @@ export class PaymentService {
     private readonly bookingService: BookingService,
     private readonly paymentAdapterFactory: PaymentAdapterFactory,
     private readonly configService: ConfigService,
+    private readonly userService: UserService,
   ) {
     this.clientUrl =
       this.configService.get<string>(ConfigServiceKeys.CLIENT_URL) || '';
@@ -74,6 +80,28 @@ export class PaymentService {
 
     const description = `Thanh toán ${seats.length} ghế: ${seatNumbers}`;
 
+    let customerId: string | undefined;
+
+    if (provider === PaymentProviderEnum.STRIPE) {
+      const user = await this.userService.findById(userId, false);
+      if (!user) {
+        throw new NotFoundException('User không tồn tại');
+      }
+
+      if (user.stripe_customer_id) {
+        customerId = user.stripe_customer_id;
+      } else if (adapter.createOrGetCustomer && user.email) {
+        customerId = await adapter.createOrGetCustomer(
+          userId,
+          user.email,
+          user.name,
+        );
+        await this.userService.update(userId, {
+          stripe_customer_id: customerId,
+        });
+      }
+    }
+
     const adapterResult = await adapter.createPaymentLink({
       bookingId: booking.id,
       bookingCode: seatNumbers,
@@ -83,6 +111,7 @@ export class PaymentService {
       successUrl: defaultSuccessUrl,
       cancelUrl: defaultCancelUrl,
       userId,
+      customerId,
       metadata: {
         bookingId: booking.id,
         seatIds: seatIds.join(','),
