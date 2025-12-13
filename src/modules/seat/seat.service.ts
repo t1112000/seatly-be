@@ -44,8 +44,12 @@ export class SeatService {
     return this.seatRepository.create(payload, options);
   }
 
-  async update(id: string, payload: UpdateSeatDto) {
-    return this.seatRepository.update(id, payload);
+  async update(
+    id: string,
+    payload: UpdateSeatDto,
+    options?: Omit<UpdateOptions<SeatModel>, 'where'>,
+  ) {
+    return this.seatRepository.update(id, payload, options);
   }
 
   async updateByCondition(

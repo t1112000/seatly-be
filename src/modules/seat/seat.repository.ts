@@ -33,17 +33,20 @@ export class SeatRepository {
   async update(
     id: string,
     payload: UpdateSeatDto,
-    options?: UpdateOptions<SeatModel>,
+    options?: Omit<UpdateOptions<SeatModel>, 'where'>,
   ): Promise<SeatModel | null> {
-    const [count, rows] = await this.seatModel.update(payload, {
-      ...options,
+    // Use instance.save() to trigger optimistic locking (version check)
+    const seat = await this.seatModel.findOne({
       where: { id },
-      returning: true,
+      transaction: options?.transaction,
+      lock: options?.transaction ? true : undefined,
     });
-    if (count === 0 || !rows?.length) {
-      throw new Error('Unable to update seat');
+    if (!seat) {
+      return null;
     }
-    return rows[0]?.get({ plain: true }) || null;
+    seat.set(payload);
+    await seat.save({ transaction: options?.transaction });
+    return seat.get({ plain: true });
   }
 
   async updateByCondition(
@@ -51,15 +54,18 @@ export class SeatRepository {
     payload: UpdateSeatDto,
     options?: Omit<UpdateOptions<SeatModel>, 'where'>,
   ): Promise<SeatModel | null> {
-    const [count, rows] = await this.seatModel.update(payload, {
-      ...options,
+    // Use instance.save() to trigger optimistic locking (version check)
+    const seat = await this.seatModel.findOne({
       where,
-      returning: true,
+      transaction: options?.transaction,
+      lock: options?.transaction ? true : undefined,
     });
-    if (count === 0 || !rows?.length) {
+    if (!seat) {
       return null;
     }
-    return rows[0]?.get({ plain: true }) || null;
+    seat.set(payload);
+    await seat.save({ transaction: options?.transaction });
+    return seat.get({ plain: true });
   }
 
   async bulkUpdate(
