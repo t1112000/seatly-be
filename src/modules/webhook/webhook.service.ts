@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectConnection } from '@nestjs/sequelize';
 import { Queue } from 'bullmq';
 import { createHmac } from 'crypto';
 import { ConfigServiceKeys } from 'src/common/constants';
@@ -25,6 +26,7 @@ export class WebhookService {
     private readonly configService: ConfigService,
     @InjectQueue(QueueName.SEAT)
     private readonly seatQueue: Queue,
+    @InjectConnection()
     private readonly sequelize: Sequelize,
   ) {}
 
