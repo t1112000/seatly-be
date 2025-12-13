@@ -98,23 +98,10 @@ export class BookingService {
       let totalAmount = 0;
       const seats: SeatModel[] = [];
 
-      // Validate and lock all seats
+      // Atomic update: lock seats by updating status from AVAILABLE to LOCKED
       for (const seatId of seatIds) {
-        const seat = await this.seatService.findById(seatId, false, {
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
-
-        if (!seat) {
-          throw new NotFoundException(`Ghế ${seatId} không tồn tại`);
-        }
-
-        if (seat.status !== SeatStatusEnum.AVAILABLE) {
-          throw new ConflictException(`Ghế ${seat.seat_number} đã bị đặt`);
-        }
-
         const updatedSeat = await this.seatService.updateByCondition(
-          { id: seatId },
+          { id: seatId, status: SeatStatusEnum.AVAILABLE },
           {
             status: SeatStatusEnum.LOCKED,
           },
@@ -122,13 +109,20 @@ export class BookingService {
         );
 
         if (!updatedSeat) {
+          // Check if seat exists
+          const seat = await this.seatService.findById(seatId, false, {
+            transaction,
+          });
+          if (!seat) {
+            throw new NotFoundException(`Ghế ${seatId} không tồn tại`);
+          }
           throw new ConflictException(
-            `Ghế ${seat.seat_number} đã bị cập nhật bởi người dùng khác`,
+            `Ghế ${seat.seat_number} đã bị đặt hoặc đã bị cập nhật bởi người dùng khác`,
           );
         }
 
-        totalAmount += Number(seat.price);
-        seats.push(seat);
+        totalAmount += Number(updatedSeat.price);
+        seats.push(updatedSeat);
       }
 
       // Create one booking for all seats
