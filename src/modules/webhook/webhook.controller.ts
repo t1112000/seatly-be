@@ -5,7 +5,7 @@ import { BaseController } from 'src/common/base/base.controller';
 import { WebhookService } from './webhook.service';
 
 @ApiTags('Webhooks')
-@Controller('/webhooks')
+@Controller('/webhook')
 export class WebhookController extends BaseController {
   constructor(private readonly webhookService: WebhookService) {
     super();
